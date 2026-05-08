@@ -1,0 +1,9 @@
+backend/.venv
+backend/venv
+backend/__pycache__
+backend/*.pt
+backend/*.pth
+backend/*.onnx
+*.pyc
+.git
+node_modules

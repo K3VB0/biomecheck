@@ -1,0 +1,575 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="theme-color" content="#0b5cff"/>
+  <meta name="description" content="BiomeCheck - Plataforma de analisis biomecanico y ergonomico con IA"/>
+  <link rel="manifest" href="manifest.json"/>
+  <title>BiomeCheck - Plataforma ergonomica IA</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body class="auth-mode" data-theme="light">
+  <button class="theme-toggle global-theme-toggle" id="theme-toggle" type="button" onclick="toggleTheme()" aria-label="Cambiar tema">
+    <span class="theme-icon theme-sun" aria-hidden="true"></span>
+    <span class="theme-icon theme-moon" aria-hidden="true"></span>
+  </button>
+
+  <section class="auth-screen" id="auth-screen">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="k-mark">B</div>
+        <div>
+          <strong>BiomeCheck</strong>
+          <span data-i18n="auth.tagline">Ergonomia, IA y gestion operativa</span>
+        </div>
+      </div>
+      <div class="auth-lang-toggle">
+        <button type="button" onclick="toggleLanguage()"><span id="auth-lang-current">ES</span></button>
+      </div>
+      <div class="auth-copy">
+        <p class="eyebrow" data-i18n="auth.eyebrow">Acceso seguro</p>
+        <h1 data-i18n="auth.heading">Inicia sesion para evaluar puestos, reportes y planes de accion.</h1>
+        <p data-i18n="auth.subheading">Acceso conectado a Supabase Auth. Los datos del panel se cargan desde tu base real.</p>
+      </div>
+      <form class="auth-form" onsubmit="loginDemo(event)">
+        <label>
+          <span data-i18n="auth.email">Email</span>
+          <input id="login-email" type="email" placeholder="correo@empresa.com" autocomplete="email" required/>
+        </label>
+        <label>
+          <span data-i18n="auth.password">Password</span>
+          <input id="login-password" type="password" data-i18n-placeholder="auth.passwordPlaceholder" placeholder="minimo 4 caracteres" autocomplete="current-password" required minlength="4"/>
+        </label>
+        <button class="btn-primary" type="submit" data-i18n="auth.login">Entrar al panel</button>
+        <button class="btn-secondary" type="button" onclick="continueAsDemo()" data-i18n="auth.signup">Crear cuenta</button>
+      </form>
+      <div class="auth-note" data-i18n="auth.note">
+        Usa el usuario creado en Supabase Auth o crea una cuenta nueva para pruebas.
+      </div>
+    </div>
+    <div class="auth-preview">
+      <div class="preview-window">
+        <div class="preview-top"></div>
+        <div class="preview-grid">
+          <div class="mini-stat blue"></div>
+          <div class="mini-stat green"></div>
+          <div class="mini-stat amber"></div>
+        </div>
+        <div class="preview-map">Tu empresa</div>
+        <div class="preview-chart"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="selector-screen" id="company-screen">
+    <div class="selector-card">
+      <div class="selector-head">
+        <div>
+          <p class="eyebrow" data-i18n="selector.step1">Paso 1</p>
+          <h1 data-i18n="selector.companyTitle">Selecciona la compania</h1>
+        </div>
+        <button class="btn-ghost compact logout-btn" type="button" onclick="logout()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          <span data-i18n="topbar.logout">Cerrar sesion</span>
+        </button>
+      </div>
+      <input class="selector-search" id="company-search" type="search" data-i18n-placeholder="selector.searchCompany" placeholder="Buscar compania" oninput="renderCompanies()"/>
+      <div class="selector-list" id="company-list"></div>
+    </div>
+  </section>
+
+  <section class="selector-screen" id="site-screen">
+    <div class="selector-card wide">
+      <div class="selector-head">
+        <div>
+          <p class="eyebrow" data-i18n="selector.step2">Paso 2</p>
+          <h1 data-i18n="selector.siteTitle">Selecciona la sede industrial</h1>
+        </div>
+        <button class="btn-ghost compact" type="button" onclick="backToCompanies()" data-i18n="common.back">Anterior</button>
+      </div>
+      <input class="selector-search" id="site-search" type="search" data-i18n-placeholder="selector.searchSite" placeholder="Buscar sede" oninput="renderSites()"/>
+      <div class="selector-list tall" id="site-list"></div>
+    </div>
+  </section>
+
+  <nav class="sidebar">
+    <div class="brand">
+      <div class="k-mark">B</div>
+      <span class="brand-name">BiomeCheck</span>
+    </div>
+
+    <div class="nav-section">
+      <button class="nav-item active" data-panel="dashboard" onclick="switchPanel('dashboard')">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg></span>
+        <span data-i18n="nav.dashboard">Dashboard</span>
+      </button>
+      <button class="nav-item" data-panel="upload" onclick="switchPanel('upload')">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span>
+        <span data-i18n="nav.upload">Upload</span>
+      </button>
+      <button class="nav-item" data-panel="files" onclick="switchPanel('files')">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>
+        <span data-i18n="nav.files">Files</span>
+      </button>
+      <button class="nav-item" data-panel="reports" onclick="switchPanel('reports')">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+        <span data-i18n="nav.reports">Reports</span>
+      </button>
+      <button class="nav-item" data-panel="rotation" onclick="switchPanel('rotation')">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg></span>
+        <span data-i18n="nav.rotation">Multitasks and rotation</span>
+      </button>
+      <button class="nav-item" data-panel="ewa" onclick="switchPanel('ewa')">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11H1l8-8 8 8h-8v10z" transform="rotate(90 12 12)"/></svg></span>
+        <span data-i18n="nav.ewa">EWA</span>
+      </button>
+      <button class="nav-item" data-panel="pea" onclick="switchPanel('pea')">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg></span>
+        <span data-i18n="nav.pea">PEA Aggregator</span>
+      </button>
+      <button class="nav-item" data-panel="actions" onclick="switchPanel('actions')">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+        <span data-i18n="nav.actions">Action plans</span>
+      </button>
+    </div>
+
+    <div class="nav-section settings-nav" id="settings-nav-section">
+      <button class="nav-item settings-toggle" type="button" onclick="toggleSettingsNav(event)" aria-expanded="false">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+        <span data-i18n="nav.settings">Settings</span>
+        <span class="chev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></span>
+      </button>
+      <div class="settings-subnav">
+        <button class="nav-subitem" data-panel="settings-account" onclick="switchPanel('settings-account')" data-i18n="nav.account">My account</button>
+        <button class="nav-subitem" data-panel="settings-preferences" onclick="switchPanel('settings-preferences')" data-i18n="nav.preferences">Preferences</button>
+        <button class="nav-subitem" data-panel="settings-users" onclick="switchPanel('settings-users')" data-i18n="nav.manageUsers">Manage users</button>
+        <button class="nav-subitem" data-panel="settings-companies" onclick="switchPanel('settings-companies')" data-i18n="nav.manageCompanies">Manage companies</button>
+        <button class="nav-subitem" data-panel="settings-custom-reports" onclick="switchPanel('settings-custom-reports')" data-i18n="nav.customReports">Personalised reports</button>
+      </div>
+    </div>
+
+    <div class="nav-section nav-extra">
+      <button class="nav-item" data-panel="camera" onclick="switchPanel('camera')">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></span>
+        <span data-i18n="nav.liveCamera">Live AI capture</span>
+      </button>
+      <button class="nav-item" data-panel="patients" onclick="switchPanel('patients')">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+        <span data-i18n="nav.patients">Patients</span>
+      </button>
+      <button class="nav-item" data-panel="history" onclick="switchPanel('history')">
+        <span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+        <span data-i18n="nav.history">History</span>
+      </button>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="version-tag"><span class="dot-pulse"></span>v0.2</div>
+      <p class="powered">MediaPipe + YOLO11 + Supabase-ready</p>
+    </div>
+  </nav>
+
+  <main class="main">
+    <header class="topbar">
+      <button class="hamburger" onclick="toggleSidebar()" aria-label="Abrir menu">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="topbar-title" id="topbar-title">Dashboard</div>
+      <div class="topbar-actions">
+        <button class="org-pill" type="button" onclick="showSiteSelector()" id="org-pill" data-i18n="topbar.selectOrg">Selecciona empresa / sede</button>
+        <div class="status-chip" id="status-chip">
+          <span class="status-dot idle"></span>
+          <span id="status-text" data-i18n="status.ready">Listo</span>
+        </div>
+        <button class="lang-toggle" type="button" onclick="toggleLanguage()" title="Idioma / Language" id="lang-toggle">
+          <span id="lang-current">ES</span>
+        </button>
+        <button class="topbar-theme-toggle" type="button" onclick="toggleTheme()" aria-label="Cambiar tema" title="Tema claro / oscuro">
+          <svg class="theme-icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg class="theme-icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <div class="user-menu">
+          <button class="user-chip" type="button" onclick="toggleUserMenu(event)" aria-haspopup="true" aria-expanded="false" id="user-chip-btn">
+            <span id="user-initial">A</span>
+            <svg class="user-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </button>
+          <div class="user-dropdown" id="user-dropdown" hidden>
+            <div class="user-dropdown-head">
+              <strong id="dropdown-name">Admin</strong>
+              <span id="dropdown-email">andreadoc1192@gmail.com</span>
+            </div>
+            <button class="user-dropdown-item" type="button" onclick="switchPanel('settings-account'); closeUserMenu()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <span data-i18n="topbar.myAccount">Mi cuenta</span>
+            </button>
+            <button class="user-dropdown-item" type="button" onclick="showSiteSelector(); closeUserMenu()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/></svg>
+              <span data-i18n="topbar.changeOrg">Cambiar empresa / sede</span>
+            </button>
+            <div class="user-dropdown-sep"></div>
+            <button class="user-dropdown-item danger" type="button" onclick="logout()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              <span data-i18n="topbar.logout">Cerrar sesion</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section class="panel active" id="panel-dashboard">
+      <div class="dashboard-grid">
+        <div class="empty-inline large-empty">Cargando dashboard desde Supabase...</div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-upload">
+      <div class="page-head centered">
+        <p class="breadcrumb"><span data-i18n="bc.home">Home</span> / <span data-i18n="nav.upload">Upload</span></p>
+        <h2 data-i18n="upload.title">Send video</h2>
+      </div>
+      <div class="upload-workspace">
+        <div class="processing-card">
+          <div>
+            <h3 data-i18n="upload.processingModels">Processing models <span class="info-dot">i</span></h3>
+          </div>
+          <div class="model-option active">
+            <span class="model-icon">1</span>
+            <div><strong data-i18n="upload.onePerson">One person</strong><p data-i18n="upload.onePersonDesc">In videos with just one worker, the evaluated person is automatically identified.</p></div>
+          </div>
+          <div class="model-option">
+            <span class="model-icon">∞</span>
+            <div><strong data-i18n="upload.multiplePeople">Multiple people</strong><p data-i18n="upload.multiplePeopleDesc">Choose which worker will be evaluated when the video has more than one person.</p></div>
+          </div>
+          <button class="close-mini" type="button" aria-label="Cerrar">x</button>
+        </div>
+
+        <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()"
+             ondragover="handleDragOver(event)" ondrop="handleDrop(event)">
+          <div class="upload-cloud"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="48" height="48"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+          <h3 data-i18n="upload.drop">Add files or drag and drop</h3>
+          <p data-i18n="upload.maxSize">Maximum size: 3GB</p>
+          <p data-i18n="upload.maxFiles">Maximum files: 10</p>
+          <input type="file" id="file-input" accept="video/*,image/*" style="display:none" onchange="handleFileSelect(event)"/>
+        </div>
+
+        <div class="upload-preview hidden" id="upload-preview">
+          <div class="video-container">
+            <video id="upload-video" controls></video>
+            <img id="upload-image" alt="Imagen subida" style="display:none"/>
+            <canvas id="upload-canvas"></canvas>
+          </div>
+          <div class="upload-controls">
+            <button class="btn-primary" onclick="analyzeUploadMedia()" data-i18n="upload.analyze">Analizar archivo</button>
+            <button class="btn-secondary" onclick="resetUpload()" data-i18n="upload.change">Cambiar archivo</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-camera">
+      <div class="section-header">
+        <div>
+          <p class="breadcrumb"><span data-i18n="bc.home">Home</span> / <span data-i18n="nav.liveCamera">Live AI capture</span></p>
+          <h2 data-i18n="panel.camera">Cámara en vivo</h2>
+        </div>
+        <button class="btn-secondary compact" type="button" onclick="switchPanel('upload')" data-i18n="camera.uploadFile">Subir archivo</button>
+      </div>
+      <div class="camera-layout">
+        <div class="video-container">
+          <video id="webcam" autoplay playsinline muted></video>
+          <canvas id="pose-canvas"></canvas>
+          <div class="video-overlay" id="video-overlay">
+            <div class="upload-cloud"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="48" height="48"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></div>
+            <p data-i18n="camera.pressStart">Presiona <strong>Iniciar</strong> para activar la camara</p>
+          </div>
+          <div class="fps-badge" id="fps-badge">-- fps</div>
+        </div>
+
+        <div class="side-panel">
+          <div class="card">
+            <div class="card-header" data-i18n="camera.control">Control</div>
+            <div class="control-buttons">
+              <button class="btn-primary" id="btn-start" onclick="startCamera()" data-i18n="camera.start">Iniciar cámara</button>
+              <button class="btn-secondary" id="btn-stop" onclick="stopCamera()" disabled data-i18n="camera.stop">Detener</button>
+              <button class="btn-secondary" id="btn-snapshot" onclick="takeSnapshot()" disabled data-i18n="camera.capture">Capturar frame</button>
+            </div>
+            <div class="camera-select-row">
+              <label class="camera-select-label" for="camera-select" data-i18n="camera.device">Cámara</label>
+              <button id="btn-refresh-camera" class="btn-ghost" type="button" disabled onclick="refreshOrSwitchCamera()" data-i18n="common.refresh">Actualizar</button>
+            </div>
+            <select id="camera-select" class="camera-select" onchange="setCameraDevice(this.value)">
+              <option value="" data-i18n="camera.auto">Cámara automática</option>
+            </select>
+            <div class="toggle-row">
+              <label class="toggle-label" data-i18n="camera.skeleton">Esqueleto visible</label>
+              <label class="toggle"><input type="checkbox" id="toggle-skeleton" checked onchange="toggleSkeleton()"/><span class="toggle-slider"></span></label>
+            </div>
+            <div class="toggle-row">
+              <label class="toggle-label" data-i18n="camera.points">Puntos articulares</label>
+              <label class="toggle"><input type="checkbox" id="toggle-points" checked onchange="togglePoints()"/><span class="toggle-slider"></span></label>
+            </div>
+          </div>
+
+          <div class="card risk-card">
+            <div class="card-header" data-i18n="camera.risk">Riesgo ergonómico</div>
+            <div class="risk-display">
+              <div class="risk-score" id="risk-score">--</div>
+              <div class="risk-level" id="risk-level" data-i18n="camera.noData">Sin datos</div>
+            </div>
+            <div class="risk-bars">
+              <div class="risk-bar-row"><span data-i18n="body.neck">Cuello</span><div class="bar-track"><div class="bar-fill" id="bar-neck" style="width:0%"></div></div><span class="bar-val" id="val-neck">--°</span></div>
+              <div class="risk-bar-row"><span data-i18n="body.trunk">Tronco</span><div class="bar-track"><div class="bar-fill" id="bar-trunk" style="width:0%"></div></div><span class="bar-val" id="val-trunk">--°</span></div>
+              <div class="risk-bar-row"><span data-i18n="body.armR">Brazo D.</span><div class="bar-track"><div class="bar-fill" id="bar-arm-r" style="width:0%"></div></div><span class="bar-val" id="val-arm-r">--°</span></div>
+              <div class="risk-bar-row"><span data-i18n="body.armL">Brazo I.</span><div class="bar-track"><div class="bar-fill" id="bar-arm-l" style="width:0%"></div></div><span class="bar-val" id="val-arm-l">--°</span></div>
+              <div class="risk-bar-row"><span data-i18n="body.kneeR">Rodilla D.</span><div class="bar-track"><div class="bar-fill" id="bar-knee-r" style="width:0%"></div></div><span class="bar-val" id="val-knee-r">--°</span></div>
+              <div class="risk-bar-row"><span data-i18n="body.kneeL">Rodilla I.</span><div class="bar-track"><div class="bar-fill" id="bar-knee-l" style="width:0%"></div></div><span class="bar-val" id="val-knee-l">--°</span></div>
+              <div class="risk-bar-row"><span data-i18n="body.ankleR">Tobillo D.</span><div class="bar-track"><div class="bar-fill" id="bar-ankle-r" style="width:0%"></div></div><span class="bar-val" id="val-ankle-r">--°</span></div>
+              <div class="risk-bar-row"><span data-i18n="body.ankleL">Tobillo I.</span><div class="bar-track"><div class="bar-fill" id="bar-ankle-l" style="width:0%"></div></div><span class="bar-val" id="val-ankle-l">--°</span></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header" data-i18n="camera.method">Método de evaluación</div>
+            <div class="method-chips">
+              <button class="method-chip active" onclick="setMethod('REBA', this)">REBA</button>
+              <button class="method-chip" onclick="setMethod('RULA', this)">RULA</button>
+              <button class="method-chip" onclick="setMethod('OWAS', this)">OWAS</button>
+            </div>
+            <div class="method-info" id="method-info" data-i18n="camera.rebaInfo">
+              <strong>REBA</strong> - Rapid Entire Body Assessment. Evalúa posturas dinámicas de cuerpo completo.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-files">
+      <div class="page-head">
+        <p class="breadcrumb"><span data-i18n="bc.home">Home</span> / <span data-i18n="nav.files">Files</span></p>
+        <h2 data-i18n="nav.files">Files</h2>
+      </div>
+      <div class="toolbar-row">
+        <button class="btn-secondary compact" data-i18n="common.filter">Filters</button>
+        <select><option data-i18n="common.ordering">Ordering</option></select>
+        <input type="search" data-i18n-placeholder="files.search" placeholder="Search a file"/>
+        <div class="view-switch"><button class="active" data-i18n="files.list">List</button><button data-i18n="files.table">Table</button></div>
+      </div>
+      <div class="file-list">
+        <div class="empty-inline large-empty" data-i18n="files.loading">Cargando archivos desde Supabase...</div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-reports">
+      <div class="page-head">
+        <p class="breadcrumb"><span data-i18n="bc.home">Home</span> / <span data-i18n="nav.reports">Reports</span></p>
+        <h2 data-i18n="nav.reports">Reports</h2>
+      </div>
+      <div class="reports-catalog">
+        <div class="catalog-card">
+          <h3 data-i18n="reports.biomechanical">Biomechanical analysis</h3>
+          <div class="catalog-grid">
+            <button onclick="switchPanel('report')">RULA</button>
+            <button onclick="switchPanel('report')">REBA</button>
+            <button onclick="switchPanel('report')">OWAS</button>
+            <button onclick="switchPanel('report')">ANSI Z-365</button>
+            <button onclick="switchPanel('report')" data-i18n="reports.angleByTime">Angle by time</button>
+            <button onclick="switchPanel('report')" data-i18n="reports.wristHand">Wrist and hand report</button>
+          </div>
+        </div>
+        <div class="catalog-card">
+          <h3 data-i18n="reports.load">Load analysis</h3>
+          <div class="catalog-grid">
+            <button><span data-i18n="reports.manualLifting">Manual lifting</span><br><small>NIOSH/ISO 11228-1</small></button>
+            <button><span data-i18n="reports.pushPull">Push and pull</span><br><small>KIM PUSH PULL</small></button>
+            <button><span data-i18n="reports.manualHandling">Manual Handling</span><br><small>KIM MHO</small></button>
+            <button><span data-i18n="reports.materialHandling">Material handling</span><br><small>LIBERTY MUTUAL</small></button>
+            <button><span data-i18n="reports.liftingCarrying">Lifting and carrying</span><br><small>KIM LHC</small></button>
+          </div>
+        </div>
+        <div class="catalog-card">
+          <h3 data-i18n="reports.repeatability">Repeatability analysis</h3>
+          <div class="catalog-grid">
+            <button><span data-i18n="reports.strainIndex">Strain index</span></button>
+            <button>OCRA</button>
+          </div>
+        </div>
+        <div class="catalog-card">
+          <h3 data-i18n="reports.ergonomic">Ergonomic analysis</h3>
+          <div class="catalog-grid">
+            <button>PEA<br><small data-i18n="reports.peaFull">Preliminary Ergonomic Assessment</small></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-report">
+      <div class="report-layout">
+        <div class="report-header-bar">
+          <div>
+            <p class="breadcrumb"><span data-i18n="bc.home">Home</span> / <span data-i18n="nav.reports">Reports</span></p>
+            <h2 class="report-title" data-i18n="report.title">Reporte ergonómico</h2>
+            <p class="report-subtitle" id="report-date" data-i18n="report.captureFirst">Captura el frame primero desde la cámara o analiza un archivo</p>
+          </div>
+          <div class="report-actions">
+            <div class="report-config">
+              <select id="report-model" title="Motor IA">
+                <option value="auto" data-i18n="report.engineAuto">Motor: Auto</option>
+                <option value="backend" data-i18n="report.engineBackend">Motor: YOLO11 backend</option>
+                <option value="local" data-i18n="report.engineLocal">Motor: Local</option>
+              </select>
+              <select id="report-method" title="Método">
+                <option value="REBA">Método: REBA</option>
+                <option value="RULA">Método: RULA</option>
+                <option value="OWAS">Método: OWAS</option>
+              </select>
+              <label class="report-check"><input type="checkbox" id="report-skeleton" checked/> <span data-i18n="report.skeleton">Esqueleto</span></label>
+              <button class="btn-secondary compact" type="button" onclick="applyPreExportSettings()" data-i18n="common.apply">Aplicar</button>
+            </div>
+            <button class="btn-primary compact" onclick="exportReport()" id="btn-export" disabled data-i18n="report.exportPdf">Exportar PDF</button>
+          </div>
+        </div>
+        <div class="report-grid" id="report-grid">
+          <div class="empty-state">
+            <p data-i18n="report.empty">Aún no hay datos. Captura un frame desde la cámara o analiza un video.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-rotation">
+      <div class="table-page">
+        <div class="section-header">
+          <div><p class="breadcrumb"><span data-i18n="bc.home">Home</span> / <span data-i18n="nav.rotation">Rotation</span></p><h2 data-i18n="rotation.title">Multitasking and rotation assessment tool</h2></div>
+          <button class="btn-primary compact" onclick="switchPanel('upload')" data-i18n="common.newReport">New report</button>
+        </div>
+        <div class="toolbar-row"><button class="btn-secondary compact" data-i18n="common.filter">Filter</button></div>
+        <table class="data-table"><thead><tr><th data-i18n="table.reportName">Report name</th><th data-i18n="table.riskRange">Risk range</th><th data-i18n="table.evaluator">Evaluator</th><th data-i18n="table.creationDate">Creation date</th><th data-i18n="table.actions">Actions</th></tr></thead><tbody><tr><td colspan="5"><div class="empty-inline" data-i18n="common.noData">No data</div></td></tr></tbody></table>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-ewa">
+      <div class="table-page">
+        <div class="section-header">
+          <div><p class="breadcrumb"><span data-i18n="bc.home">Home</span> / EWA</p><h2 data-i18n="panel.ewa">Ergonomic Workplace Analysis</h2></div>
+          <button class="btn-primary compact" onclick="switchPanel('upload')" data-i18n="common.newDocument">New document</button>
+        </div>
+        <div class="toolbar-row"><button class="btn-secondary compact" data-i18n="common.filter">Filter</button></div>
+        <table class="data-table"><thead><tr><th data-i18n="table.reportName">Report name</th><th data-i18n="table.site">Industrial Site</th><th data-i18n="table.creationDate">Date of creation</th><th data-i18n="table.status">Status</th><th data-i18n="table.worstScore">Worst score</th><th data-i18n="table.actions">Actions</th></tr></thead><tbody><tr><td colspan="6"><div class="empty-inline" data-i18n="common.noData">No data</div></td></tr></tbody></table>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-pea">
+      <div class="table-page">
+        <div class="section-header">
+          <div><p class="breadcrumb"><span data-i18n="bc.home">Home</span> / PEA Aggregator</p><h2 data-i18n="pea.title">Preliminary Ergonomic Assessments</h2></div>
+          <button class="btn-primary compact" onclick="switchPanel('upload')" data-i18n="common.newDocument">New document</button>
+        </div>
+        <div class="toolbar-row"><button class="btn-secondary compact" data-i18n="common.filter">Filter</button></div>
+        <table class="data-table"><thead><tr><th>ID</th><th data-i18n="table.report">Report</th><th data-i18n="table.peaSelected">Selected PEA</th><th data-i18n="table.worstScore">Worst Score</th><th data-i18n="table.collectionDate">Date of collection</th><th data-i18n="table.creationDate">Date of creation</th><th data-i18n="table.actions">Actions</th></tr></thead><tbody><tr><td colspan="7"><div class="empty-inline" data-i18n="common.noData">No data</div></td></tr></tbody></table>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-actions">
+      <div class="section-header">
+        <div><p class="breadcrumb"><span data-i18n="bc.home">Home</span> / <span data-i18n="nav.actions">Action plans</span></p><h2 data-i18n="nav.actions">Action plans</h2></div>
+        <div class="inline-actions"><button class="btn-secondary compact" data-i18n="actions.board">Board</button><button class="btn-primary compact" data-i18n="actions.new">New action plan</button></div>
+      </div>
+      <div class="toolbar-row"><button class="btn-secondary compact" data-i18n="common.filter">Filters</button><span class="action-count" data-i18n="actions.count">Action plans: 0</span></div>
+      <div class="kanban">
+        <div class="kanban-col todo"><h3><span data-i18n="kanban.todo">To Do</span> <b>0</b></h3></div>
+        <div class="kanban-col doing"><h3><span data-i18n="kanban.doing">Doing</span> <b>0</b></h3></div>
+        <div class="kanban-col done"><h3><span data-i18n="kanban.done">Done</span> <b>0</b></h3></div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-settings-account">
+      <div class="page-head"><p class="breadcrumb"><span data-i18n="bc.home">Home</span> / <span data-i18n="nav.settings">Settings</span> / <span data-i18n="nav.account">My account</span></p><h2 data-i18n="account.overview">Account overview</h2></div>
+      <div class="settings-grid">
+        <div class="settings-card"><h3 data-i18n="account.profile">Profile</h3><div class="profile-row"><div><p data-i18n="account.name">Name</p><strong id="profile-name">-</strong><p data-i18n="account.email">Email</p><strong id="profile-email">-</strong><p data-i18n="account.role">Account type</p><strong id="profile-role">-</strong></div><div class="k-mark big" id="profile-initial">-</div></div></div>
+        <div class="settings-card"><h3 data-i18n="account.organization">Organization</h3><p data-i18n="account.company">Company</p><strong id="profile-company">-</strong><p data-i18n="account.site">Site</p><strong id="profile-site">-</strong></div>
+        <div class="settings-card"><h3 data-i18n="account.plan">Plan</h3><p data-i18n="account.subscription">Subscription</p><strong>Pilot</strong><p data-i18n="account.status">Status</p><strong data-i18n="account.statusActive">Active</strong></div>
+        <div class="settings-card"><h3 data-i18n="account.security">Security</h3><p data-i18n="account.password">Password</p><strong>************</strong><button class="btn-ghost compact" data-i18n="account.changePassword">Change password</button></div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-settings-preferences">
+      <div class="section-header"><div><p class="breadcrumb"><span data-i18n="bc.home">Home</span> / <span data-i18n="nav.settings">Settings</span> / <span data-i18n="nav.preferences">Preferences</span></p><h2 data-i18n="nav.preferences">Preferences</h2></div><button class="btn-primary compact" data-i18n="common.create">Create</button></div>
+      <div class="settings-card full"><h3 data-i18n="prefs.riskRanges">Risk ranges</h3><table class="data-table"><thead><tr><th data-i18n="prefs.method">Method</th><th data-i18n="prefs.lowMax">Low (≤)</th><th data-i18n="prefs.mediumMax">Medium (≤)</th><th data-i18n="prefs.highMax">High (≤)</th></tr></thead><tbody><tr><td>RULA</td><td>2</td><td>4</td><td>6</td></tr><tr><td>REBA</td><td>3</td><td>7</td><td>10</td></tr><tr><td>ANSI Z-365</td><td>3</td><td>6</td><td>9</td></tr></tbody></table></div>
+    </section>
+
+    <section class="panel" id="panel-settings-users">
+      <div class="section-header"><div><p class="breadcrumb"><span data-i18n="bc.home">Home</span> / <span data-i18n="nav.manageUsers">Manage users</span></p><h2 data-i18n="nav.manageUsers">Manage users</h2></div><button class="btn-primary compact" data-i18n="common.create">Create</button></div>
+      <div class="toolbar-row"><button class="btn-secondary compact">Filter</button></div>
+      <table class="data-table"><thead><tr><th data-i18n="users.name">Name</th><th data-i18n="users.email">E-mail</th><th data-i18n="users.role">Role</th><th data-i18n="users.status">Status</th><th data-i18n="users.actions">Actions</th></tr></thead><tbody id="users-tbody">
+        <tr><td colspan="5"><div class="empty-inline" data-i18n="users.empty">Cargando usuarios desde Supabase...</div></td></tr>
+      </tbody></table>
+    </section>
+
+    <section class="panel" id="panel-settings-companies">
+      <div class="section-header"><div><p class="breadcrumb"><span data-i18n="bc.home">Home</span> / <span data-i18n="nav.settings">Settings</span> / <span data-i18n="nav.manageCompanies">Companies</span></p><h2 data-i18n="nav.manageCompanies">Manage companies</h2></div><button class="btn-primary compact" data-i18n="common.create">Create</button></div>
+      <div class="toolbar-row"><button class="btn-secondary compact">Filter</button></div>
+      <table class="data-table"><thead><tr><th>Name</th><th>Total Industrial Sites</th><th>Date of creation</th><th>Actions</th></tr></thead><tbody><tr><td colspan="4"><div class="empty-inline">Cargando empresas desde Supabase...</div></td></tr></tbody></table>
+    </section>
+
+    <section class="panel" id="panel-settings-custom-reports">
+      <div class="section-header"><div><p class="breadcrumb"><span data-i18n="bc.home">Home</span> / <span data-i18n="nav.settings">Settings</span> / <span data-i18n="nav.customReports">Personalised reports</span></p><h2 data-i18n="nav.customReports">Personalised reports</h2></div><button class="btn-primary compact" onclick="switchPanel('reports')" data-i18n="common.newReport">New report</button></div>
+      <div class="toolbar-row"><button class="btn-secondary compact" data-i18n="common.filter">Filter</button></div>
+      <div class="empty-inline large-empty" data-i18n="common.noData">No data</div>
+    </section>
+
+    <section class="panel" id="panel-patients">
+      <div class="section-header">
+        <h2 data-i18n="nav.patients">Pacientes</h2>
+        <button class="btn-primary compact" onclick="openNewPatient()" data-i18n="patients.new">Nuevo paciente</button>
+      </div>
+      <form id="patient-form" class="manage-form" onsubmit="createPatient(event)">
+        <input id="patient-name" required type="text" data-i18n-placeholder="patients.fullName" placeholder="Nombre y apellidos"/>
+        <input id="patient-role" required type="text" data-i18n-placeholder="patients.occupation" placeholder="Ocupación"/>
+        <input id="patient-age" required type="number" min="1" max="120" data-i18n-placeholder="patients.age" placeholder="Edad"/>
+        <select id="patient-risk" required>
+          <option value="low" data-i18n="patients.riskLow">Riesgo inicial: Bajo</option>
+          <option value="medium" data-i18n="patients.riskMedium">Riesgo inicial: Medio</option>
+          <option value="high" data-i18n="patients.riskHigh">Riesgo inicial: Alto</option>
+        </select>
+        <button class="btn-primary" type="submit" data-i18n="patients.save">Guardar paciente</button>
+      </form>
+      <div class="patients-grid" id="patients-grid"></div>
+    </section>
+
+    <section class="panel" id="panel-history">
+      <div class="section-header">
+        <h2 data-i18n="panel.history">Historial de sesiones</h2>
+        <button class="btn-ghost compact" type="button" onclick="clearHistory()" data-i18n="history.clear">Limpiar historial</button>
+      </div>
+      <form id="history-form" class="manage-form" onsubmit="createHistoryEntry(event)">
+        <select id="history-patient" required></select>
+        <select id="history-method" required>
+          <option value="REBA - Camara en vivo">REBA - Camara en vivo</option>
+          <option value="REBA - Video subido">REBA - Video subido</option>
+          <option value="REBA - Imagen subida">REBA - Imagen subida</option>
+          <option value="RULA - Camara en vivo">RULA - Camara en vivo</option>
+          <option value="RULA - Video subido">RULA - Video subido</option>
+        </select>
+        <input id="history-score" required type="number" min="1" max="15" placeholder="Score"/>
+        <input id="history-date" required type="date"/>
+        <button class="btn-primary" type="submit">Agregar sesion</button>
+      </form>
+      <div class="history-list" id="history-list"></div>
+    </section>
+  </main>
+
+  <div class="toast-container" id="toast-container"></div>
+  <script src="js/config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
